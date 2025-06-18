@@ -1,4 +1,32 @@
-project-backup/
+# --- Node & Build Artifacts ---
 node_modules/
-backup-repo-mirror/
+.next/
+dist/
+build/
+out/
+
+# --- System Files ---
+.DS_Store
+Thumbs.db
+
+# --- IDE Folders ---
+.vscode/
+.idea/
+
+# --- Environment & Config ---
+.env
+.env.local
+.env.production
+.env.development
+
+# --- Logs ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Backups / Misc ---
 project-backup/
+backup-repo-mirror/
+*.tgz
+*.zip
+*.bak
