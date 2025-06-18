@@ -30,12 +30,14 @@ export const authOptions: AuthOptions = {
     async redirect({ baseUrl }) {
       return `${baseUrl}/wallet`;
     },
-    async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.sub;
-      }
-      return session;
-    },
+   
+async session({ session, token }) {
+  if (token?.sub && session.user) {
+    session.user.id = token.sub;
+  }
+  return session;
+},
+
     async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
