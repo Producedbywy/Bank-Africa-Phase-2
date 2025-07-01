@@ -22,6 +22,9 @@ services:
         fromDatabase:
           name: bankafrica-db
           property: connectionString
+      - key: PYTHONPATH
+  	value: .
+
 
 databases:
   - name: bankafrica-db
