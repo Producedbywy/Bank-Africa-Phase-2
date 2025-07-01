@@ -16,7 +16,7 @@ services:
       - key: DEBUG
         value: False
       - key: ALLOWED_HOSTS
-        value: "bank-africa-backend.onrender.com,localhost,127.0.0.1"
+        value: "bank-africa-lumobackend.onrender.com,localhost,127.0.0.1"
       - key: DATABASE_URL
         fromDatabase:
           name: bankafrica-db
