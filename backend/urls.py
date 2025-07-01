@@ -1,9 +1,22 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
 from core.views import UsernameOrEmailTokenObtainPairView, RegisterUserAPIView
 from rest_framework_simplejwt.views import TokenRefreshView
 
+# ✅ Root API health/status endpoint
+def api_root(request):
+    return JsonResponse({
+        "message": "Lumo Backend is running ✅",
+        "status": "ok",
+        "version": "1.0",
+        "docs": "/api/"
+    })
+
 urlpatterns = [
+    # ✅ Root Health Check
+    path('', api_root),  # This must come first
+
     # Admin Panel
     path('admin/', admin.site.urls),
 
@@ -26,8 +39,7 @@ urlpatterns = [
     # Mobile Money
     path('api/momo/', include('momo.urls')),
 
-    # ✅ Two-Factor Auth (correctly namespaced)
-    # Two-Factor Auth via custom include
-path('', include(('core.custom_two_factor_urls', 'two_factor'), namespace='two_factor')),
-
+    # ✅ Two-Factor Auth (custom route include with namespace)
+    path('', include(('core.custom_two_factor_urls', 'two_factor'), namespace='two_factor')),
 ]
+
