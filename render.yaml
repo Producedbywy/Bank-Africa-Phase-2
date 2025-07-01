@@ -6,9 +6,8 @@ services:
     plan: free
     rootDir: Bank-Africa-django--main
     buildCommand: ./build.sh
-    startCommand: > 
-	gunicorn backend.wsgi:application --bind 0.0.0.0:10000
-
+    startCommand: >
+      PYTHONPATH=. gunicorn backend.wsgi:application --bind 0.0.0.0:10000
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: backend.settings
@@ -22,9 +21,6 @@ services:
         fromDatabase:
           name: bankafrica-db
           property: connectionString
-      - key: PYTHONPATH
-  	value: .
-
 
 databases:
   - name: bankafrica-db
@@ -32,4 +28,3 @@ databases:
     plan: free
     databaseName: bankafricadb
     user: bankafricauser
-
