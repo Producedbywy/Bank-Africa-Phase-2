@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: bank-africa-backend
+    env: python
+    region: frankfurt
+    plan: free
+    rootDir: .
+    buildCommand: ./build.sh
+    startCommand: gunicorn backend.wsgi:application
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: backend.settings
+      - key: SECRET_KEY
+        fromFile: .env.backend
+      - key: DEBUG
+        value: False
+      - key: ALLOWED_HOSTS
+        value: bank-africa-backend.onrender.com,localhost,127.0.0.1
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bankafrica-db
+          property: connectionString
+
+databases:
+  - name: bankafrica-db
+    region: frankfurt
+    plan: free
+    databaseName: bankafricadb
+    user: bankafricauser
+
