@@ -27,5 +27,7 @@ urlpatterns = [
     path('api/momo/', include('momo.urls')),
 
     # ✅ Two-Factor Auth (correctly namespaced)
-    path('', include('two_factor.urls')),
+    # Two-Factor Auth via custom include
+path('', include(('core.custom_two_factor_urls', 'two_factor'), namespace='two_factor')),
+
 ]
