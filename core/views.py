@@ -9,6 +9,8 @@ from django.contrib.auth.hashers import make_password
 from .models import Account, Transaction, Notification, Budget
 from .serializers import (
     UserSerializer,
+    RegisterUserSerializer,
+    UsernameTokenObtainPairSerializer,
     AccountSerializer,
     TransactionSerializer,
     NotificationSerializer,
@@ -20,7 +22,7 @@ User = get_user_model()
 # -------------------- AUTH + REGISTER --------------------
 
 class RegisterUserAPIView(generics.CreateAPIView):
-    serializer_class = UserSerializer
+    serializer_class = RegisterUserSerializer
     permission_classes = [permissions.AllowAny]
 
     def create(self, request, *args, **kwargs):
@@ -41,36 +43,46 @@ class RegisterUserAPIView(generics.CreateAPIView):
 
 
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
-class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+class UsernameOrEmailTokenObtainPairView(TokenObtainPairView):
+    serializer_class = UsernameTokenObtainPairSerializer
+
+
+class UsernameTokenObtainPairSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
     def validate(self, attrs):
-        email = attrs.get("username")  # frontend sends email as "username"
+        login_input = attrs.get("username")
         password = attrs.get("password")
 
         try:
-            user = User.objects.get(email=email)
+            # Try username first
+            user = User.objects.get(username=login_input)
         except User.DoesNotExist:
-            raise serializers.ValidationError("No user with that email.")
+            try:
+                # Try email fallback
+                user = User.objects.get(email=login_input)
+            except User.DoesNotExist:
+                raise serializers.ValidationError("No user with that username or email.")
 
         if not user.check_password(password):
             raise serializers.ValidationError("Incorrect password.")
         if not user.is_active:
             raise serializers.ValidationError("User account is disabled.")
 
-        attrs["username"] = user.username  # internally map email → username
-        data = super().validate(attrs)
+        refresh = RefreshToken.for_user(user)
 
-        # ✅ Include user info in the token response
-        data["user_id"] = user.id
-        data["username"] = user.username
-        data["email"] = user.email
-
-        return data
-
-
-class EmailTokenObtainPairView(TokenObtainPairView):
-    serializer_class = EmailTokenObtainPairSerializer
+        return {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+            }
+        }
 
 
 # -------------------- PROFILE --------------------
