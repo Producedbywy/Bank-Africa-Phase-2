@@ -1,16 +1,22 @@
-from rest_framework import generics, permissions, status, serializers
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
+
+from rest_framework import generics, permissions, status, serializers
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.decorators import api_view, permission_classes
+
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Account, Transaction, Notification, Budget
 from .serializers import (
     UserSerializer,
     RegisterUserSerializer,
-    UsernameTokenObtainPairSerializer,
+    # NOTE: we intentionally do NOT import UsernameTokenObtainPairSerializer
+    # to avoid name collisions with the local serializer defined below.
     AccountSerializer,
     TransactionSerializer,
     NotificationSerializer,
@@ -27,26 +33,30 @@ class RegisterUserAPIView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        data['password'] = make_password(data.get('password'))
+        if "password" in data:
+            data["password"] = make_password(data.get("password"))
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        return Response({
-            "message": "User registered successfully",
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "username": user.username,
-            }
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                "message": "User registered successfully",
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "username": user.username,
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
-
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.tokens import RefreshToken
 
 class UsernameOrEmailTokenObtainPairView(TokenObtainPairView):
-    serializer_class = UsernameTokenObtainPairSerializer
+    """
+    Issue JWT tokens using either username OR email in the 'username' field.
+    """
+    serializer_class = None  # set below after class is defined
 
 
 class UsernameTokenObtainPairSerializer(serializers.Serializer):
@@ -57,12 +67,11 @@ class UsernameTokenObtainPairSerializer(serializers.Serializer):
         login_input = attrs.get("username")
         password = attrs.get("password")
 
+        # find by username, then fallback to email
         try:
-            # Try username first
             user = User.objects.get(username=login_input)
         except User.DoesNotExist:
             try:
-                # Try email fallback
                 user = User.objects.get(email=login_input)
             except User.DoesNotExist:
                 raise serializers.ValidationError("No user with that username or email.")
@@ -73,7 +82,6 @@ class UsernameTokenObtainPairSerializer(serializers.Serializer):
             raise serializers.ValidationError("User account is disabled.")
 
         refresh = RefreshToken.for_user(user)
-
         return {
             "refresh": str(refresh),
             "access": str(refresh.access_token),
@@ -81,8 +89,11 @@ class UsernameTokenObtainPairSerializer(serializers.Serializer):
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
-            }
+            },
         }
+
+# wire the serializer now that it exists
+UsernameOrEmailTokenObtainPairView.serializer_class = UsernameTokenObtainPairSerializer
 
 
 # -------------------- PROFILE --------------------
@@ -126,21 +137,21 @@ class TransactionListCreateView(generics.ListCreateAPIView):
         return Transaction.objects.filter(account__user=self.request.user)
 
     def perform_create(self, serializer):
-        transaction_type = serializer.validated_data.get('transaction_type')
-        amount = serializer.validated_data.get('amount')
-        account = serializer.validated_data.get('account')
-        related_account = serializer.validated_data.get('related_account')
+        transaction_type = serializer.validated_data.get("transaction_type")
+        amount = serializer.validated_data.get("amount")
+        account = serializer.validated_data.get("account")
+        related_account = serializer.validated_data.get("related_account")
 
-        if transaction_type in ['send', 'withdraw']:
+        if transaction_type in ["send", "withdraw"]:
             if account.balance < amount:
                 raise serializers.ValidationError("Insufficient balance.")
             account.balance -= amount
             account.save()
-        elif transaction_type in ['receive', 'deposit']:
+        elif transaction_type in ["receive", "deposit"]:
             account.balance += amount
             account.save()
 
-        if transaction_type == 'send' and related_account:
+        if transaction_type == "send" and related_account:
             related_account.balance += amount
             related_account.save()
 
@@ -209,21 +220,35 @@ class BudgetSpendingSummaryView(APIView):
         user = request.user
         budgets = Budget.objects.filter(user=user)
         summary = []
-        for budget in budgets:
-            spent = Transaction.objects.filter(
-                account__user=user,
-                timestamp__range=(budget.start_date, budget.end_date),
-                transaction_type='withdraw',
-            ).aggregate(total=models.Sum('amount'))['total'] or 0
 
-            summary.append({
-                'budget_id': budget.id,
-                'category': budget.category,
-                'amount': budget.amount,
-                'spent': spent,
-                'remaining': budget.amount - spent,
-                'start_date': budget.start_date,
-                'end_date': budget.end_date,
-            })
+        for budget in budgets:
+            spent = (
+                Transaction.objects.filter(
+                    account__user=user,
+                    timestamp__range=(budget.start_date, budget.end_date),
+                    transaction_type="withdraw",
+                ).aggregate(total=models.Sum("amount"))["total"]
+                or 0
+            )
+
+            summary.append(
+                {
+                    "budget_id": budget.id,
+                    "category": budget.category,
+                    "amount": budget.amount,
+                    "spent": spent,
+                    "remaining": budget.amount - spent,
+                    "start_date": budget.start_date,
+                    "end_date": budget.end_date,
+                }
+            )
 
         return Response(summary)
+
+
+# -------------------- PUBLIC HEALTH --------------------
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def health(_request):
+    return Response({"ok": True, "service": "django", "api": "v1"})
