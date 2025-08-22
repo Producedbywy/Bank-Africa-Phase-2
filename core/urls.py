@@ -2,6 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+
+    path("health/", views.health, name="health"),  # <- public health check
+    
     # User management
    path('users/register/', views.RegisterUserAPIView.as_view(), name='user-register'),
     path('users/profile/', views.UserProfileView.as_view(), name='user-profile'),
