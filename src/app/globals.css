@@ -1,0 +1,31 @@
+@layer base {
+  * {
+    @apply border-border;
+    outline-color: rgb(var(--ring) / 0.5);
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif font-bold;
+  }
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .bg-gradient-card {
+    background: linear-gradient(to bottom right, #0B3A57, #002A42);
+  }
+  .bg-gradient-hero {
+    background: linear-gradient(to bottom right, #002A42, #008893);
+  }
+  .bg-gradient-accent {
+    background: linear-gradient(to right, #F05A28, #F9B233);
+  }
+}
+
